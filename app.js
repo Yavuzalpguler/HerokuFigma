@@ -28,7 +28,7 @@ app.get('/designs', async (req, res) => {
     );
 
     res.setHeader('Content-Type', 'application/json');
-    res.send(JSON.stringify(profileScreenData, null, 2)); // Format JSON with 2-space indentation
+    res.send(JSON.stringify(profileScreenData, null, 2));
   } catch (error) {
     console.error('Error fetching Figma designs:', error);
     res.status(500).send('Error fetching Figma designs');
@@ -87,7 +87,6 @@ const extractComponents = (
         (child.absoluteBoundingBox.width / figmaCanvasWidth) * iosScreenWidth,
       height:
         (child.absoluteBoundingBox.height / figmaCanvasHeight) * iosScreenHeight
-      // You can add more properties as needed
     }));
     return components;
   }
