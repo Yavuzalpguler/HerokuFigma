@@ -2,14 +2,17 @@ const express = require('express');
 const axios = require('axios');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
-const iosScreenWidth = 400;
-const iosScreenHeight = 900;
+
+const PORT = process.env.PORT || 3001;
 const FIGMA_TOKEN = 'figd_c9JSlTAT36tlz4ISYb4nqGsQYbMXTMZcUofatJbb';
 const FILE_ID = 'knilXMzyrSgkpQsGTDtSGm';
 
-app.get('/designs', async (req, res) => {
+app.get('/', (req, res) => res.send('Express on Vercel'));
+
+app.post('/designs', async (req, res) => {
   try {
+    const { screenWidth = 400, screenHeight = 900 } = req.query;
+
     const response = await axios.get(
       `https://api.figma.com/v1/files/${FILE_ID}`,
       {
@@ -22,9 +25,10 @@ app.get('/designs', async (req, res) => {
     const designData = response.data;
     const profileScreenData = getProfileScreenData(
       designData,
+      'Screens 📱',
       'Profile screen',
-      iosScreenWidth,
-      iosScreenHeight
+      screenWidth,
+      screenHeight
     );
 
     res.setHeader('Content-Type', 'application/json');
@@ -37,77 +41,76 @@ app.get('/designs', async (req, res) => {
 
 const getProfileScreenData = (
   designData,
+  pageName,
   screenName,
-  iosScreenWidth,
-  iosScreenHeight
+  screenWidth,
+  screenHeight
 ) => {
   const document = designData.document;
   const pages = document.children;
 
   for (const page of pages) {
     if (page.children) {
-      if (page.name === 'Screens 📱') {
+      if (page.name === pageName) {
         for (const canvas of page.children) {
-          console.log(canvas.name);
-          if (canvas.name == 'Profile screen') {
+          if (canvas.name == screenName) {
             const components = extractComponents(
               canvas,
               canvas.absoluteBoundingBox.width,
               canvas.absoluteBoundingBox.height,
-              iosScreenWidth,
-              iosScreenHeight
+              screenWidth,
+              screenHeight
             );
-            console.log(
-              canvas.absoluteBoundingBox.width,
-              canvas.absoluteBoundingBox.height
-            );
-            return components;
+            return [
+              {
+                data: {
+                  elements: components
+                }
+              }
+            ];
           }
         }
       }
     }
   }
 
-  return { error: 'Profile screen not found' };
+  return { error: screenName + ' in' + pageName + ' not found' };
 };
 
 const extractComponents = (
   node,
   figmaCanvasWidth,
   figmaCanvasHeight,
-  iosScreenWidth,
-  iosScreenHeight
+  screenWidth,
+  screenHeight
 ) => {
   if (node.children) {
     const components = node.children.map(child => ({
-      name: child.name,
-      x: (child.absoluteBoundingBox.x / figmaCanvasWidth) * iosScreenWidth,
-      y: (child.absoluteBoundingBox.y / figmaCanvasHeight) * iosScreenHeight,
-      width:
-        (child.absoluteBoundingBox.width / figmaCanvasWidth) * iosScreenWidth,
-      height:
-        (child.absoluteBoundingBox.height / figmaCanvasHeight) * iosScreenHeight
+      type: child.type.toLowerCase(),
+      attribute: {
+        x: (
+          (child.absoluteBoundingBox.x / figmaCanvasWidth) *
+          screenWidth
+        ).toFixed(2),
+        y: (
+          (child.absoluteBoundingBox.y / figmaCanvasHeight) *
+          screenHeight
+        ).toFixed(2),
+        width: (
+          (child.absoluteBoundingBox.width / figmaCanvasWidth) *
+          screenWidth
+        ).toFixed(2),
+        height: (
+          (child.absoluteBoundingBox.height / figmaCanvasHeight) *
+          screenHeight
+        ).toFixed(2)
+      }
     }));
     return components;
   }
   return [];
 };
 
-const findNodeByName = (nodes, name) => {
-  for (let node of nodes) {
-    if (node.name === name) {
-      return node;
-    }
-    if (node.children) {
-      const found = findNodeByName(node.children, name);
-      if (found) {
-        return found;
-      }
-    }
-  }
-  return null;
-};
+app.listen(PORT, () => console.log('Server ready on port', PORT));
 
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-});
+module.exports = app;
